@@ -1,5 +1,19 @@
-cryptography
-PyMySQL
-python-dotenv
-pydantic
-rich
+#cryptography
+#PyMySQL
+#python-dotenv
+#pydantic
+#rich
+# Cryptography library for AES, RSA, X.509, and hashing
+cryptography>=41.0.0
+
+# MySQL connector for database operations
+mysql-connector-python>=8.2.0
+
+# Pydantic for message validation and serialization
+pydantic>=2.5.0
+
+# Python-dotenv for environment variable management
+python-dotenv>=1.0.0
+
+# Additional utilities
+typing-extensions>=4.8.0
