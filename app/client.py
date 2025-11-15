@@ -11,6 +11,7 @@ import json
 import sys
 import uuid
 import threading
+import base64
 from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -222,6 +223,15 @@ class SecureChatClient:
         # Encrypt message
         ct = encrypt(text, self.session_key)
         
+        # # ========== Uncomment THIS CODE only for "Test 3: Message Tampering Detection" ==========
+        # # Tamper with ciphertext (flip one bit)
+        # ct_bytes = base64.b64decode(ct)
+        # ct_bytes = bytearray(ct_bytes)
+        # ct_bytes[0] ^= 0x01  # Flip first bit
+        # ct = base64.b64encode(ct_bytes).decode('ascii')
+        # print("[DEBUG] Ciphertext tampered!")
+        # # ===================================
+
         # Sign message
         ts = now_ms()
         sig = sign_message(self.seqno, ts, ct, self.client_key)
@@ -258,6 +268,16 @@ class SecureChatClient:
             try:
                 message = input(f"[{self.username}] ")
                 
+                if message.lower() == 'test_replay':
+                    # Send a message normally
+                    self.send_message("Original message")
+
+                    # Try to replay it (don't increment seqno)
+                    self.seqno -= 1
+                    self.send_message("Original message")
+                    self.seqno += 1  # Fix counter
+                    continue
+
                 if message.lower() == 'exit':
                     # End session
                     self.sock.send(json.dumps({"type": "end_session"}).encode('utf-8'))

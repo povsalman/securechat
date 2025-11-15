@@ -138,8 +138,8 @@ def verify_session(transcript_path: str, receipt_path: str, cert_path: str):
     public_key = cert.public_key()
     cert_cn = cert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)[0].value
     print(f"    Certificate CN: {cert_cn}")
-    print(f"    Valid from: {cert.not_valid_before}")
-    print(f"    Valid until: {cert.not_valid_after}")
+    print(f"    Valid from: {cert.not_valid_before_utc}")
+    print(f"    Valid until: {cert.not_valid_after_utc}")
     
     # Load receipt
     print(f"\n[2] Loading receipt: {receipt_path}")
