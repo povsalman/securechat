@@ -48,6 +48,7 @@ certs/*.der
 # Transcripts and Logs
 transcripts/*.txt
 transcripts/*.log
+transcripts/*.json
 logs/*.log
 !transcripts/.keep
 
