@@ -82,7 +82,7 @@ The system achieves **CIANR**:
 ┌──────────────┐                              ┌──────────────┐
 │              │   1. Cert Exchange (TLS)     │              │
 │              │ ──────────────────────────>  │              │
-│    Client    │ <────────────────────────── │    Server    │
+│    Client    │ <──────────────────────────  │    Server    │
 │              │   2. Temp DH (for auth)      │              │
 │              │ ──────────────────────────>  │              │
 │              │ <──────────────────────────  │              │
@@ -122,8 +122,8 @@ The system achieves **CIANR**:
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/securechat-assignment2.git
-cd securechat-assignment2
+git clone https://github.com/povsalman/securechat.git
+cd securechat
 ```
 
 ### 2. Create Virtual Environment
@@ -142,6 +142,25 @@ source .venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
+
+# Verify installation
+pip list | Select-String cryptography
+pip list | Select-String "mysql-connector-python"
+pip list | Select-String "pydantic"
+```
+
+### 4: Create Directory Structure
+
+```bash
+# Create necessary directories
+New-Item -ItemType Directory -Force -Path certs, transcripts, logs | Out-Null
+
+# Create .keep files to preserve empty directories
+New-Item -ItemType File -Force -Path certs/.keep | Out-Null
+New-Item -ItemType File -Force -Path transcripts/.keep | Out-Null
+
+# Verify structure (PowerShell alternative to tree -L 1)
+tree /A /F
 ```
 
 ---
@@ -150,9 +169,32 @@ pip install -r requirements.txt
 
 ### 1. Setup MySQL Database
 
-**Option A: Using Docker (Recommended)**
+**Using Docker (Windows)**
 
 ```bash
+# Start MySQL container
+docker run -d --name securechat-db `
+  -e MYSQL_ROOT_PASSWORD=rootpass `
+  -e MYSQL_DATABASE=securechat `
+  -e MYSQL_USER=scuser `
+  -e MYSQL_PASSWORD=scpass `
+  -p 3306:3306 `
+  mysql:8
+
+# Wait 15 seconds for MySQL to start
+Start-Sleep -Seconds 15
+
+# Verify container is running
+docker ps | Select-String "securechat-db"
+
+# Test connection
+docker exec -i securechat-db mysql -u scuser -pscpass securechat -e "SELECT 1;"
+```
+
+**Using Docker (Ubuntu)**
+
+```bash
+# Start MySQL container
 docker run -d --name securechat-db \
   -e MYSQL_ROOT_PASSWORD=rootpass \
   -e MYSQL_DATABASE=securechat \
@@ -160,20 +202,21 @@ docker run -d --name securechat-db \
   -e MYSQL_PASSWORD=scpass \
   -p 3306:3306 \
   mysql:8
+
+# Wait 10-15 seconds for MySQL to start
+sleep 15
+
+# Verify container is running
+docker ps | grep securechat-db
+
+# Test connection
+docker exec -it securechat-db mysql -u scuser -pscpass securechat -e "SELECT 1;"
 ```
 
-**Option B: Local MySQL Installation**
-
-```sql
-CREATE DATABASE securechat CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'scuser'@'localhost' IDENTIFIED BY 'scpass';
-GRANT ALL PRIVILEGES ON securechat.* TO 'scuser'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-### 2. Initialize Database Schema
+### 2. Initialize Database Schema (Windows Docker Version)
 
 ```bash
+# Initialize database tables
 python -m app.storage.db --init
 ```
 
@@ -185,11 +228,15 @@ python -m app.storage.db --init
 
 ### 3. Configure Environment
 
-```bash
-cp .env.example .env
-```
-
 Edit `.env` with your configuration:
+
+```bash
+# Setup environment variables (Not needed in my case)
+Copy-Item .env.example .env
+
+# Edit .env if needed (ensure DB credentials match)
+notepad .env  # or use your preferred editor
+```
 
 ```ini
 # Database
@@ -363,13 +410,16 @@ python -m app.client
 ### Test 1: Invalid Certificate Rejection
 
 ```bash
-# Generate self-signed (invalid) certificate
-openssl req -newkey rsa:2048 -nodes -keyout certs/fake_key.pem \
-  -x509 -days 1 -out certs/fake_cert.pem \
-  -subj "/C=PK/ST=Islamabad/L=Islamabad/O=Fake/CN=fake.local"
+# Generate self-signed certificate (NOT signed by our CA)
+openssl req -newkey rsa:2048 -nodes `
+  -keyout certs/fake_key.pem `
+  -x509 -days 1 `
+  -out certs/fake_cert.pem `
+  -subj "/C=PK/ST=Islamabad/L=Islamabad/O=FakeOrg/CN=fake.local"
 
 # Temporarily modify .env to use fake certificate
 # Run client
+python -m app.client
 
 # Expected: Server rejects with "BAD_CERT" error
 ```
@@ -395,11 +445,11 @@ openssl req -newkey rsa:2048 -nodes -keyout certs/fake_key.pem \
 
 **Display Filters:**
 
-```
-tcp.port == 5000
-tcp.stream eq 0
-frame contains "encrypted"
-```
+- `frame contains "client_cert"`: This will show you the first "hello" message where the certificate is exchanged.
+
+- `frame contains "encrypted_payload"`: This will show you the encrypted login/registration packets.
+
+- `frame contains "ct"`: This will find all your chat messages.
 
 ### Test 3: Message Tampering Detection
 
@@ -417,11 +467,14 @@ ct = base64.b64encode(ct_bytes).decode('ascii')
 
 ### Test 4: Replay Attack Detection
 
-```python
-# In client chat_loop():
-self.send_message("Test message")
-self.seqno -= 1  # Don't increment
-self.send_message("Test message")  # Send again
+```bash
+# Start server and client
+# Login and type:
+[alice] test_replay
+
+# Expected on server:
+[✓] Message 1 received and verified
+[✗] REPLAY: Expected seqno 2, got 1
 ```
 
 **Expected**: Server returns `REPLAY` error
@@ -429,21 +482,22 @@ self.send_message("Test message")  # Send again
 ### Test 5: Non-Repudiation Verification
 
 ```bash
-# After completing a session:
-python scripts/verify_receipt.py \
-  --transcript transcripts/session_XXXXX_alice.txt \
-  --receipt transcripts/receipt_XXXXX_alice.json \
+# Verify the receipt
+python scripts/verify_receipt_script.py `
+  --transcript transcripts/session_XXXXXXXX_alice.txt `
+  --receipt transcripts/receipt_XXXXXXXX_alice.json `
   --cert certs/client_cert.pem
 
 # Expected: All checks pass ✓
 
 # Now edit transcript file (change one character):
-nano transcripts/session_XXXXX_alice.txt
+notepad transcripts/session_XXXXX_alice.txt
 
 # Run verification again:
-python scripts/verify_receipt.py \
-  --transcript transcripts/session_XXXXX_alice.txt \
-  --receipt transcripts/receipt_XXXXX_alice.json \
+# Verify the receipt
+python scripts/verify_receipt_script.py `
+  --transcript transcripts/session_XXXXXXXX_alice.txt `
+  --receipt transcripts/receipt_XXXXXXXX_alice.json `
   --cert certs/client_cert.pem
 
 # Expected: Transcript hash mismatch ✗

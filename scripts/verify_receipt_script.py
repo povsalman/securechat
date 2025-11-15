@@ -100,13 +100,16 @@ def verify_receipt_signature(transcript_hash: str, receipt_sig: str, public_key)
         # Convert hex hash to bytes
         hash_bytes = bytes.fromhex(transcript_hash)
         
+        # Compute the actual digest that was signed (extra SHA-256 layer)
+        digest = hashlib.sha256(hash_bytes).digest()
+        
         # Decode signature
         signature_bytes = base64.b64decode(receipt_sig)
         
         # Verify signature
         public_key.verify(
             signature_bytes,
-            hash_bytes,
+            digest,
             padding.PKCS1v15(),
             hashes.SHA256()
         )

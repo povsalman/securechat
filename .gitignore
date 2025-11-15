@@ -55,6 +55,7 @@ logs/*.log
 # Database
 *.db
 *.sqlite
+*submission/*.sql
 
 # Test outputs
 *.pcap
