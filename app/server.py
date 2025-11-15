@@ -21,6 +21,9 @@ from dotenv import load_dotenv
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
+
 from app.crypto import (
     encrypt, decrypt, generate_params, generate_keypair,
     compute_shared_secret, derive_aes_key, validate_certificate,
@@ -51,7 +54,7 @@ class SecureChatServer:
     def start(self):
         """Start the server and listen for connections."""
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((self.host, self.port))
         server_socket.listen(5)
         
@@ -112,7 +115,6 @@ class SecureChatServer:
         print(f"  [<] Received client hello with nonce: {hello.nonce[:16]}...")
         
         # Parse and validate client certificate
-        from cryptography import x509
         client_cert = x509.load_pem_x509_certificate(hello.client_cert.encode('utf-8'))
         
         is_valid, msg = validate_certificate(client_cert, self.ca_cert)
