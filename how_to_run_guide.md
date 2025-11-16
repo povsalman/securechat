@@ -682,6 +682,9 @@ python scripts/verify_receipt_script.py `
   --receipt transcripts/receipt_XXXXXXXX_alice.json `
   --cert certs/client_cert.pem
 
+# For Debugging, use below
+python scripts/debug_receipt.py transcripts/receipt_XXXXXXXX_alice.json transcripts/session_XXXXXXXX_alice.txt certs/client_cert.pem
+
 
 # Expected output:
 ======================================================================
