@@ -268,6 +268,8 @@ class SecureChatClient:
             try:
                 message = input(f"[{self.username}] ")
                 
+                # ======== Test Case: Replay Protection Verification ==========
+
                 if message.lower() == 'test_replay':
                     # Send a message normally
                     self.send_message("Original message")
@@ -278,6 +280,8 @@ class SecureChatClient:
                     self.seqno += 1  # Fix counter
                     continue
 
+                # =============================================================
+                
                 if message.lower() == 'exit':
                     # End session
                     self.sock.send(json.dumps({"type": "end_session"}).encode('utf-8'))
